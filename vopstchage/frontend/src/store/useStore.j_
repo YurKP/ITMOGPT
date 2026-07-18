@@ -1,0 +1,104 @@
+import { create } from 'zustand';
+
+// --- localStorage helpers для persistent session ---
+const SESSION_KEY = 'vobshage_session';
+const SESSION_TTL_MS = 48 * 60 * 60 * 1000; // 48 часов в мс
+
+export function saveSession(token, nickname, skin) {
+  const data = {
+    token,
+    nickname,
+    skin,
+    savedAt: Date.now(),
+  };
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.warn('Failed to save session to localStorage', e);
+  }
+}
+
+export function loadSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    // Проверяем TTL на клиенте (подстраховка, сервер тоже проверит)
+    if (Date.now() - data.savedAt > SESSION_TTL_MS) {
+      localStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+    return data;
+  } catch (e) {
+    localStorage.removeItem(SESSION_KEY);
+    return null;
+  }
+}
+
+export function clearSession() {
+  localStorage.removeItem(SESSION_KEY);
+}
+
+export const useStore = create((set) => ({
+  currentFloor: 1,
+  socket: null,
+  user: null, // My user data
+  view: 'loading', // 'loading', 'login', 'map', 'floor', 'room'
+  currentRoomId: null,
+  globalStats: {},
+  lastEnteredRoom: null, // Суффикс последней комнаты (для позиционирования в коридоре)
+  
+  // Room State
+  roomUsers: [],
+  roomItems: [],
+  roomEnv: { light: "1" },
+  unlockedFloors: [],
+
+  faculty: null,
+  hasGem: false,
+  notifications: [],
+  bossDefeated: false,
+
+  setSocket: (s) => set({ socket: s }),
+  setUser: (u) => set({ user: u }),
+  setView: (v) => set({ view: v }),
+  setGlobalStats: (stats) => set({ globalStats: stats }),
+  unlockFloor: (floorId) => set((s) => ({ unlockedFloors: [...s.unlockedFloors, floorId] })),
+  setLastEnteredRoom: (roomSuffix) => set({ lastEnteredRoom: roomSuffix }),
+  
+  setFaculty: (f) => set({ faculty: f }),
+  setHasGem: (v) => set({ hasGem: v }),
+  setBossDefeated: (v) => set({ bossDefeated: v }),
+  addNotification: (msg) => set((s) => ({ notifications: [...s.notifications.slice(-4), msg] })),
+  clearNotification: (idx) => set((s) => ({ notifications: s.notifications.filter((_, i) => i !== idx) })),
+
+  setRoomState: (data) => {
+    set({
+        currentRoomId: data.id,
+        roomUsers: data.users || [],
+        roomItems: data.items || [],
+        roomEnv: data.env || { light: "1" }
+    })
+  },
+  
+  // Actions to update local state optimistically or via socket events
+  addUser: (u) => set((s) => {
+    // Защита от дубликатов: если пользователь с таким sid уже есть, не добавляем
+    if (s.roomUsers.some(existing => existing.sid === u.sid)) {
+      return s;
+    }
+    return { roomUsers: [...s.roomUsers, u] };
+  }),
+  removeUser: (sid) => set((s) => ({ roomUsers: s.roomUsers.filter(u => u.sid !== sid) })),
+  updateUserPos: (sid, x, y) => set((s) => ({
+      roomUsers: s.roomUsers.map(u => u.sid === sid ? {...u, x, y} : u)
+  })),
+  updateUserNickname: (sid, nickname) => set((s) => ({
+      roomUsers: s.roomUsers.map(u => u.sid === sid ? {...u, nickname} : u)
+  })),
+  setCurrentFloor: (f) => set({ currentFloor: f }),
+  
+  addItem: (item) => set((s) => ({ roomItems: [...s.roomItems, item] })),
+  removeItem: (id) => set((s) => ({ roomItems: s.roomItems.filter(i => i.id !== id) })),
+  setLight: (isOn) => set((s) => ({ roomEnv: { ...s.roomEnv, light: isOn ? "1" : "0" } }))
+}));

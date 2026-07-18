@@ -1,0 +1,119 @@
+const chatMessages = document.getElementById('chatMessages');
+const chatForm = document.getElementById('chatForm');
+const messageInput = document.getElementById('messageInput');
+
+let sessionId = 'web_' + Math.random().toString(36).substring(2, 10);
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function renderMarkdown(text) {
+    return text
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/`(.*?)`/g, '<code>$1</code>')
+        .replace(/\n/g, '<br>');
+}
+
+function addMessage(content, isUser, route) {
+    const msg = document.createElement('div');
+    msg.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+
+    const avatar = document.createElement('div');
+    avatar.className = 'message-avatar';
+    avatar.textContent = isUser ? '👤' : '🤖';
+
+    const body = document.createElement('div');
+    body.className = 'message-content';
+
+    if (isUser) {
+        body.textContent = content;
+    } else {
+        let html = '';
+        if (route && route !== 'chat') {
+            const labels = {gostomysl: '📚 Гостомысл', vygotsky: '🧠 Выготский'};
+            html += `<span class="route-badge">${labels[route] || route}</span><br>`;
+        }
+        html += renderMarkdown(content);
+        body.innerHTML = html;
+    }
+
+    msg.appendChild(avatar);
+    msg.appendChild(body);
+    chatMessages.appendChild(msg);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function addTypingIndicator() {
+    const msg = document.createElement('div');
+    msg.className = 'message bot-message';
+    msg.id = 'typingIndicator';
+    const avatar = document.createElement('div');
+    avatar.className = 'message-avatar';
+    avatar.textContent = '🤖';
+    const body = document.createElement('div');
+    body.className = 'message-content typing-indicator';
+    body.innerHTML = '<span></span><span></span><span></span>';
+    msg.appendChild(avatar);
+    msg.appendChild(body);
+    chatMessages.appendChild(msg);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function removeTypingIndicator() {
+    const el = document.getElementById('typingIndicator');
+    if (el) el.remove();
+}
+
+async function sendMessage(text) {
+    if (!text || !text.trim()) return;
+    switchTab('chat');
+    addMessage(text, true);
+    messageInput.value = '';
+    messageInput.disabled = true;
+    addTypingIndicator();
+
+    try {
+        const resp = await fetch('/api/chat', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({message: text, session_id: sessionId}),
+        });
+        const data = await resp.json();
+        removeTypingIndicator();
+        addMessage(data.answer, false, data.route);
+    } catch (err) {
+        removeTypingIndicator();
+        addMessage('❌ Ошибка соединения. Попробуй ещё раз!', false);
+    } finally {
+        messageInput.disabled = false;
+        messageInput.focus();
+    }
+}
+
+function quickAction(prefix) {
+    switchTab('chat');
+    messageInput.value = prefix;
+    messageInput.focus();
+}
+
+function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.getElementById(tab === 'chat' ? 'tabChat' : 'tabGraph').classList.add('active');
+}
+
+chatForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    sendMessage(messageInput.value.trim());
+});
+
+messageInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        chatForm.dispatchEvent(new Event('submit'));
+    }
+});

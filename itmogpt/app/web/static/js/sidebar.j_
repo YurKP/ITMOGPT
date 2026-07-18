@@ -1,0 +1,77 @@
+async function loadDormStats() {
+    const el = document.getElementById('dormStats');
+    try {
+        const resp = await fetch('/api/sidebar/stats');
+        const data = await resp.json();
+        if (data.error) {
+            el.innerHTML = '<div class="stat-mini">Нет данных</div>';
+            return;
+        }
+        let html = '';
+        const online = data.online_by_floor || {};
+        const total = Object.values(online).reduce((a, b) => a + b, 0);
+        html += `<div class="stat-row"><span>👥 Онлайн</span><span class="stat-value">${total}</span></div>`;
+
+        const topFloors = Object.entries(online).sort((a, b) => b[1] - a[1]).slice(0, 3);
+        if (topFloors.length) {
+            html += '<div class="stat-row"><span>🏢 Топ этажи</span><span class="stat-value">';
+            html += topFloors.map(([f, c]) => `${f}э(${c})`).join(', ');
+            html += '</span></div>';
+        }
+
+        const topRooms = (data.top_rooms_activity || []).slice(0, 3);
+        if (topRooms.length) {
+            html += '<div class="stat-row"><span>🔥 Активные</span><span class="stat-value">';
+            html += topRooms.map(r => r[0]).join(', ');
+            html += '</span></div>';
+        }
+
+        const issues = data.floor_issues || {};
+        for (const [floor, problems] of Object.entries(issues)) {
+            html += `<div class="stat-row"><span>⚠️ ${floor}э</span><span>${problems.join(', ')}</span></div>`;
+        }
+
+        const topEmoji = (data.top_emoji || []).slice(0, 5);
+        if (topEmoji.length) {
+            html += '<div class="stat-row"><span>Эмодзи</span><span>';
+            html += topEmoji.map(e => `${e[0]}×${e[1]}`).join(' ');
+            html += '</span></div>';
+        }
+
+        el.innerHTML = html || '<div class="stat-mini">Нет данных</div>';
+    } catch (e) {
+        el.innerHTML = '<div class="stat-mini">Вобщаге недоступен</div>';
+    }
+}
+
+async function loadNewspaper() {
+    const el = document.getElementById('miniNewspaper');
+    try {
+        const resp = await fetch('/api/sidebar/newspaper');
+        const data = await resp.json();
+        if (data.preview) {
+            el.textContent = data.preview;
+        } else {
+            el.textContent = 'Свежий выпуск скоро!';
+        }
+    } catch (e) {
+        el.textContent = 'Газета недоступна';
+    }
+}
+
+async function loadFact() {
+    const el = document.getElementById('factOfDay');
+    try {
+        const resp = await fetch('/api/sidebar/fact');
+        const data = await resp.json();
+        el.textContent = data.fact || 'ИТМО — один из ведущих вузов России в области IT!';
+    } catch (e) {
+        el.textContent = 'ИТМО — один из ведущих вузов России в области IT!';
+    }
+}
+
+loadDormStats();
+loadNewspaper();
+loadFact();
+
+setInterval(loadDormStats, 5 * 60 * 1000);

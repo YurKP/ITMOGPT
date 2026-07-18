@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  # 1. База данных
+  redis:
+    image: redis:7-alpine
+    restart: always
+    volumes:
+      - redis_data:/data
+    networks:
+      - app_network
+
+  # 2. Бэкенд (API)
+  backend:
+    build: ./backend
+    restart: always
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - ALLOW_ORIGINS=*
+      - ADMIN_SECRET=${ADMIN_SECRET:-changeme}
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
+      - YA_API_KEY=${YA_API_KEY:-}
+      - YA_FOLDER_ID=${YA_FOLDER_ID:-}
+    volumes:
+      - backend_logs:/var/log/vobshage
+    depends_on:
+      - redis
+    networks:
+      - app_network
+
+  # 3. Фронтенд + Nginx (Внутренний)
+  frontend:
+    build: ./frontend
+    restart: always
+    # УБРАЛИ ports: "80:80". Теперь он доступен только внутри Docker.
+    depends_on:
+      - backend
+    networks:
+      - app_network
+
+  # 4. Caddy (Входная точка с АВТО HTTPS)
+  # Он сам получит сертификаты и сделает редирект с HTTP на HTTPS
+  caddy:
+    image: caddy:2-alpine
+    restart: always
+    ports:
+      - "80:80"   # Для редиректа на HTTPS и верификации домена
+      - "443:443" # Для безопасного соединения
+    # ЗАМЕНИТЕ вашдомен.ru НА ВАШ РЕАЛЬНЫЙ ДОМЕН!
+    command: caddy reverse-proxy --from xn--80abcgk4c7d.fun --to http://frontend:80
+    volumes:
+      - caddy_data:/data    # Обязательно сохраняем сертификаты на диск
+      - caddy_config:/config
+    networks:
+      - app_network
+    depends_on:
+      - frontend
+
+volumes:
+  redis_data:
+  caddy_data:      # Хранение SSL сертификатов
+  caddy_config:    # Конфиги Caddy
+  backend_logs:    # Логи аналитики (events.jsonl)
+
+networks:
+  app_network:
+    driver: bridge

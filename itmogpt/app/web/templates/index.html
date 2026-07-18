@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ИТМО GPT</title>
+    <link rel="icon" type="image/jpeg" href="/static/images/favicon.jpg">
+    <link rel="stylesheet" href="/static/css/style.css?v=2">
+    <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+</head>
+<body>
+    <div class="layout">
+        <header class="header">
+            <div class="logo">
+                <img src="/static/images/favicon.jpg" alt="ИТМО GPT" class="logo-img">
+                <h1>ИТМО<span class="accent">GPT</span></h1>
+            </div>
+            <div class="header-tabs">
+                <button class="tab-btn active" data-tab="chat" onclick="switchTab('chat')">💬 Чат</button>
+                <button class="tab-btn" data-tab="graph" onclick="switchTab('graph')">🧠 Граф знаний</button>
+            </div>
+            <nav class="nav-links">
+                <a href="https://xn--80abcgk4c7d.fun" target="_blank" class="nav-btn brutal-btn">🏠 Вобщаге</a>
+            </nav>
+        </header>
+
+        <div class="main-grid">
+            <!-- LEFT SIDEBAR -->
+            <aside class="sidebar sidebar-left">
+                <div class="sidebar-section">
+                    <h3 class="sidebar-title">🚀 Быстрые действия</h3>
+                    <button class="action-card" onclick="quickAction('Найди научные статьи про ')">
+                        <span class="action-icon">📚</span>
+                        <span class="action-label">Найти статьи</span>
+                        <span class="action-desc">Гостомысл + ГОСТ</span>
+                    </button>
+                    <button class="action-card" onclick="quickAction('Что изучить для вакансии ')">
+                        <span class="action-icon">🧠</span>
+                        <span class="action-label">Путь обучения</span>
+                        <span class="action-desc">Выготский</span>
+                    </button>
+                    <button class="action-card" onclick="sendMessage('Что сейчас происходит в общаге?')">
+                        <span class="action-icon">🏠</span>
+                        <span class="action-label">Что в общаге?</span>
+                        <span class="action-desc">Живые данные</span>
+                    </button>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3 class="sidebar-title">💡 Примеры</h3>
+                    <div class="examples">
+                        <button class="example-btn" onclick="sendMessage('Как получить повышенную стипендию?')">Как получить стипендию?</button>
+                        <button class="example-btn" onclick="sendMessage('Найди статьи про reinforcement learning')">Статьи про RL</button>
+                        <button class="example-btn" onclick="sendMessage('Что изучить для вакансии Data Scientist | знаю Python и SQL')">Путь в Data Science</button>
+                        <button class="example-btn" onclick="sendMessage('Где в общаге самые крутые соседи?')">Крутые соседи</button>
+                        <button class="example-btn" onclick="sendMessage('Расскажи про Кронбарс')">Про Кронбарс</button>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- MAIN CONTENT -->
+            <main class="content">
+                <!-- CHAT TAB -->
+                <div class="tab-content active" id="tabChat">
+                    <div class="chat-container">
+                        <div class="chat-messages" id="chatMessages">
+                            <div class="message bot-message">
+                                <div class="message-avatar">🤖</div>
+                                <div class="message-content">
+                                    <p>Йо! Я <strong>ИТМО GPT</strong> — твой студенческий помощник! 🎓</p>
+                                    <p>Спрашивай про ИТМО, учёбу, общагу — помогу чем смогу.</p>
+                                    <p class="hint">📚 Ищу статьи и делаю ГОСТ-библиографию</p>
+                                    <p class="hint">🧠 Строю графы знаний и пути обучения</p>
+                                    <p class="hint">🏠 Знаю что происходит в общаге прямо сейчас</p>
+                                </div>
+                            </div>
+                        </div>
+                        <form class="chat-input" id="chatForm">
+                            <input type="text" id="messageInput" placeholder="Спроси что-нибудь..." autocomplete="off" autofocus>
+                            <button type="submit" class="send-btn brutal-btn">→</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- GRAPH TAB -->
+                <div class="tab-content" id="tabGraph">
+                    <div class="graph-panel">
+                        <div class="graph-controls">
+                            <div class="graph-source-tabs">
+                                <button class="source-btn active" onclick="setGraphSource('text')">📝 Текст</button>
+                                <button class="source-btn" onclick="setGraphSource('url')">🔗 URL</button>
+                                <button class="source-btn" onclick="setGraphSource('pdf')">📄 PDF</button>
+                            </div>
+                            <div class="graph-input-area">
+                                <div id="sourceText" class="source-input active">
+                                    <textarea id="graphTextInput" placeholder="Опиши вакансию, тему или образовательную программу..." rows="3"></textarea>
+                                </div>
+                                <div id="sourceUrl" class="source-input">
+                                    <input type="url" id="graphUrlInput" placeholder="https://hh.ru/vacancy/...">
+                                </div>
+                                <div id="sourcePdf" class="source-input">
+                                    <input type="file" id="graphPdfInput" accept=".pdf">
+                                </div>
+                            </div>
+                            <div class="graph-skills">
+                                <input type="text" id="userSkills" placeholder="Мои навыки: Python, SQL, статистика...">
+                            </div>
+                            <button class="brutal-btn graph-build-btn" id="buildGraphBtn" onclick="buildGraph()">🔍 Построить граф</button>
+                        </div>
+
+                        <div class="graph-display" id="graphDisplay">
+                            <div class="graph-placeholder">
+                                <span>🧠</span>
+                                <p>Заполни форму выше и нажми «Построить граф»</p>
+                            </div>
+                        </div>
+
+                        <div class="graph-legend" id="graphLegend" style="display:none">
+                            <span class="legend-item"><span class="legend-dot known"></span> Знаешь</span>
+                            <span class="legend-item"><span class="legend-dot learn"></span> Изучить</span>
+                            <span class="legend-item"><span class="legend-dot other"></span> Не в пути</span>
+                        </div>
+
+                        <div class="learning-path" id="learningPath" style="display:none">
+                            <h3>📋 Путь обучения</h3>
+                            <ol id="pathList"></ol>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            <!-- RIGHT SIDEBAR -->
+            <aside class="sidebar sidebar-right">
+                <div class="sidebar-section">
+                    <h3 class="sidebar-title">📊 Общага Live</h3>
+                    <div id="dormStats" class="dorm-stats">
+                        <div class="stat-mini loading-pulse">Загрузка...</div>
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3 class="sidebar-title">📰 Слухи Общаги</h3>
+                    <div id="miniNewspaper" class="mini-newspaper">
+                        <div class="loading-pulse">Загрузка...</div>
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3 class="sidebar-title">🔗 Полезные ссылки</h3>
+                    <div class="links-list">
+                        <a href="https://student.itmo.ru" target="_blank">student.itmo.ru</a>
+                        <a href="https://isu.ifmo.ru" target="_blank">isu.ifmo.ru</a>
+                        <a href="https://lib.itmo.ru" target="_blank">lib.itmo.ru</a>
+                        <a href="https://se.ifmo.ru" target="_blank">se.ifmo.ru</a>
+                        <a href="https://xn--80abcgk4c7d.fun" target="_blank">вобщаге.fun</a>
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3 class="sidebar-title">🎓 Факт дня</h3>
+                    <div id="factOfDay" class="fact-box">
+                        <div class="loading-pulse">Загрузка...</div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+
+        <footer class="footer">
+            <span>ИТМО GPT · Экосистема студенческих инструментов</span>
+        </footer>
+    </div>
+
+    <script src="/static/js/chat.js?v=2"></script>
+    <script src="/static/js/sidebar.js?v=2"></script>
+    <script src="/static/js/graph.js?v=2"></script>
+</body>
+</html>

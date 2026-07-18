@@ -1,0 +1,148 @@
+let currentGraphSource = 'text';
+let graphNetwork = null;
+
+function setGraphSource(source) {
+    currentGraphSource = source;
+    document.querySelectorAll('.source-btn').forEach(b => b.classList.toggle('active', b.textContent.includes(
+        source === 'text' ? 'Текст' : source === 'url' ? 'URL' : 'PDF'
+    )));
+    document.querySelectorAll('.source-input').forEach(el => el.classList.remove('active'));
+    document.getElementById(source === 'text' ? 'sourceText' : source === 'url' ? 'sourceUrl' : 'sourcePdf').classList.add('active');
+}
+
+async function buildGraph() {
+    const btn = document.getElementById('buildGraphBtn');
+    const display = document.getElementById('graphDisplay');
+    const legend = document.getElementById('graphLegend');
+    const pathSection = document.getElementById('learningPath');
+    const pathList = document.getElementById('pathList');
+
+    btn.disabled = true;
+    display.innerHTML = '<div class="graph-placeholder"><div class="loading-pulse">🧠 Строю граф знаний...</div></div>';
+    legend.style.display = 'none';
+    pathSection.style.display = 'none';
+
+    let content = '';
+    if (currentGraphSource === 'text') {
+        content = document.getElementById('graphTextInput').value.trim();
+    } else if (currentGraphSource === 'url') {
+        content = document.getElementById('graphUrlInput').value.trim();
+    } else if (currentGraphSource === 'pdf') {
+        const fileInput = document.getElementById('graphPdfInput');
+        if (fileInput.files.length > 0) {
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            try {
+                const resp = await fetch('/api/vygotsky/parse-pdf', {method: 'POST', body: formData});
+                const data = await resp.json();
+                content = data.text || '';
+            } catch (e) {
+                display.innerHTML = '<div class="graph-placeholder"><span>❌</span><p>Ошибка загрузки PDF</p></div>';
+                btn.disabled = false;
+                return;
+            }
+        }
+    }
+
+    if (!content) {
+        display.innerHTML = '<div class="graph-placeholder"><span>⚠️</span><p>Введите описание или загрузите файл</p></div>';
+        btn.disabled = false;
+        return;
+    }
+
+    if (currentGraphSource === 'url') {
+        try {
+            const resp = await fetch('/api/vygotsky/parse-url', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({url: content}),
+            });
+            const data = await resp.json();
+            content = data.text || content;
+        } catch (e) {
+            // use URL as-is
+        }
+    }
+
+    const userSkills = document.getElementById('userSkills').value.trim();
+
+    try {
+        const resp = await fetch('/api/vygotsky/analyze', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({content, user_skills: userSkills}),
+        });
+        const data = await resp.json();
+
+        if (data.error) {
+            display.innerHTML = `<div class="graph-placeholder"><span>❌</span><p>${data.error}</p></div>`;
+            btn.disabled = false;
+            return;
+        }
+
+        renderGraph(display, data);
+        renderLearningPath(pathList, data.learning_path || []);
+        legend.style.display = 'flex';
+        if ((data.learning_path || []).length > 0) pathSection.style.display = 'block';
+    } catch (e) {
+        display.innerHTML = `<div class="graph-placeholder"><span>❌</span><p>Ошибка: ${e.message}</p></div>`;
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+function renderGraph(container, data) {
+    container.innerHTML = '';
+    const graph = data.knowledge_graph || {};
+    const knownSet = new Set(data.known_topics || []);
+    const pathSet = new Set((data.learning_path || []).map(s => s.id));
+
+    const nodes = (graph.nodes || []).map(n => {
+        let color = '#bdbdbd';
+        let fontColor = '#333';
+        if (knownSet.has(n.id)) {
+            color = '#4caf50';
+            fontColor = '#fff';
+        } else if (pathSet.has(n.id)) {
+            color = '#f44336';
+            fontColor = '#fff';
+        }
+        return {
+            id: n.id,
+            label: n.label || n.id,
+            color: {background: color, border: '#000', highlight: {background: '#ffd600', border: '#000'}},
+            font: {color: fontColor, face: 'Courier New', size: 13},
+            shape: 'box',
+            margin: 8,
+            borderWidth: 2,
+        };
+    });
+
+    const edges = (graph.edges || []).map(e => ({
+        from: e.source,
+        to: e.target,
+        arrows: 'to',
+        color: {color: '#666'},
+        width: 2,
+    }));
+
+    const visData = {nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges)};
+    const options = {
+        layout: {hierarchical: {direction: 'UD', sortMethod: 'directed', levelSeparation: 80, nodeSpacing: 150}},
+        physics: false,
+        interaction: {hover: true, zoomView: true, dragView: true},
+        edges: {smooth: {type: 'cubicBezier'}},
+    };
+
+    graphNetwork = new vis.Network(container, visData, options);
+}
+
+function renderLearningPath(listEl, path) {
+    listEl.innerHTML = '';
+    path.forEach((step, i) => {
+        const li = document.createElement('li');
+        li.innerHTML = `<strong>${step.label || step.id}</strong>` +
+            (step.reason ? ` <span class="step-reason">— ${step.reason}</span>` : '');
+        listEl.appendChild(li);
+    });
+}

@@ -1,0 +1,33 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# --- Векторные индексы / runtime-данные ---
+chroma_db/
+*.sqlite3
+*.db
+
+# --- Node / фронтенд ---
+node_modules/
+dist/
+.vite/
+
+# --- Секреты и окружения ---
+.env
+.env.*
+!.env.example
+
+# --- Docker тома и логи ---
+backend_logs/
+*.log
+
+# --- OS / IDE ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
